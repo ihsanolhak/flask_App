@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CS2 — Player Authentication</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow+Condensed:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-deep:#0a0c0f;
+  --bg-panel:#0f1318;
+  --bg-card:#141920;
+  --bg-input:#0d1117;
+  --border:#1e2a38;
+  --orange:#f0a500;
+  --orange-dim:#c88800;
+  --orange-glow:rgba(240,165,0,0.18);
+  --red:#e8372a;
+  --ct-blue:#4a9eda;
+  --text-primary:#e8eaed;
+  --text-dim:#7a8a9a;
+  --text-muted:#3a4a5a;
+  --success:#4caf50;
+}
+html,body{height:100%;font-family:'Barlow Condensed',sans-serif;background:var(--bg-deep);color:var(--text-primary);overflow:hidden}
+
+/* BACKGROUND */
+.bg-scene{position:fixed;inset:0;z-index:0;background:linear-gradient(135deg,#0a0c0f 0%,#0d1520 40%,#0a0c0f 100%);overflow:hidden}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(240,165,0,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(240,165,0,0.04) 1px,transparent 1px);background-size:60px 60px;animation:gridScroll 20s linear infinite}
+@keyframes gridScroll{0%{transform:translateY(0)}100%{transform:translateY(60px)}}
+.bg-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 30%,rgba(0,0,0,0.85) 100%)}
+.bg-accent{position:absolute;width:600px;height:600px;border-radius:50%;filter:blur(120px);pointer-events:none}
+.bg-accent.a1{top:-200px;left:-200px;background:radial-gradient(circle,rgba(240,165,0,0.08) 0%,transparent 70%);animation:pulse1 8s ease-in-out infinite}
+.bg-accent.a2{bottom:-200px;right:-200px;background:radial-gradient(circle,rgba(74,158,218,0.06) 0%,transparent 70%);animation:pulse2 10s ease-in-out infinite}
+@keyframes pulse1{0%,100%{opacity:0.6;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes pulse2{0%,100%{opacity:0.4;transform:scale(1)}50%{opacity:0.8;transform:scale(1.15)}}
+.scanlines{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none}
+
+/* LAYOUT */
+.wrapper{position:relative;z-index:1;height:100vh;display:grid;grid-template-columns:1fr 1fr}
+
+/* LEFT PANEL */
+.panel-left{display:flex;flex-direction:column;justify-content:center;padding:3rem 4rem;position:relative;border-right:1px solid rgba(240,165,0,0.12)}
+.panel-left::before{content:'';position:absolute;top:0;right:0;width:1px;height:100%;background:linear-gradient(to bottom,transparent,var(--orange),transparent);opacity:0.3}
+.cs-logo{margin-bottom:2.5rem;animation:fadeSlideUp 0.8s ease both}
+.cs-logo-icon{width:64px;height:64px;position:relative;margin-bottom:1.5rem}
+.cs-logo-icon svg{width:64px;height:64px;filter:drop-shadow(0 0 12px rgba(240,165,0,0.6))}
+.cs-title{font-family:'Rajdhani',sans-serif;font-size:52px;font-weight:700;letter-spacing:4px;text-transform:uppercase;line-height:1;background:linear-gradient(135deg,#f0a500 0%,#ffd166 50%,#f0a500 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 20px rgba(240,165,0,0.4))}
+.cs-subtitle{font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:4px;color:var(--text-dim);text-transform:uppercase;margin-top:6px}
+.server-status{display:flex;align-items:center;gap:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:2.5rem;animation:fadeSlideUp 0.8s 0.1s ease both}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);animation:blink 2s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.panel-art{flex:1;display:flex;align-items:center;justify-content:center;position:relative}
+.ct-silhouette{width:240px;height:auto;opacity:0.12;filter:drop-shadow(0 0 30px rgba(240,165,0,0.3));animation:floatAnim 6s ease-in-out infinite}
+@keyframes floatAnim{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;animation:fadeSlideUp 0.8s 0.2s ease both}
+.stat-box{padding:12px 14px;border:1px solid var(--border);border-top:2px solid var(--orange-dim);background:var(--bg-card);position:relative;overflow:hidden}
+.stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--orange),transparent)}
+.stat-num{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;color:var(--orange);line-height:1}
+.stat-label{font-size:10px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-top:3px}
+
+/* RIGHT PANEL */
+.panel-right{display:flex;align-items:center;justify-content:center;padding:2.5rem}
+.auth-container{width:100%;max-width:400px;animation:fadeSlideUp 0.8s 0.15s ease both}
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* TABS */
+.tab-row{display:flex;border:1px solid var(--border);border-bottom:none;overflow:hidden}
+.tab-btn{flex:1;padding:14px 20px;background:var(--bg-panel);border:none;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;position:relative;transition:all 0.2s}
+.tab-btn:first-child{border-right:1px solid var(--border)}
+.tab-btn.active{background:var(--bg-card);color:var(--orange)}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--orange);box-shadow:0 0 8px var(--orange)}
+.tab-btn:hover:not(.active){color:var(--text-dim);background:var(--bg-card)}
+
+/* AUTH CARD */
+.auth-card{background:var(--bg-card);border:1px solid var(--border);border-top:none;padding:2rem;position:relative;overflow:hidden}
+.auth-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--orange-dim),transparent);opacity:0.5}
+.auth-card::after{content:'';position:absolute;bottom:0;right:0;width:40px;height:40px;border-bottom:2px solid var(--orange-dim);border-right:2px solid var(--orange-dim);opacity:0.4}
+.corner-tl{position:absolute;top:0;left:0;width:40px;height:40px;border-top:2px solid var(--orange-dim);border-left:2px solid var(--orange-dim);opacity:0.4}
+
+.form-title{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;color:var(--text-primary)}
+.form-subtitle{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-muted);letter-spacing:2px;margin-bottom:1.8rem}
+
+/* FIELDS */
+.field{margin-bottom:1.1rem}
+.field label{display:block;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.field input{width:100%;background:var(--bg-input);border:1px solid var(--border);border-left:3px solid var(--border);padding:11px 14px;font-family:'Barlow Condensed',sans-serif;font-size:15px;color:var(--text-primary);outline:none;transition:all 0.2s;letter-spacing:0.5px}
+.field input::placeholder{color:var(--text-muted)}
+.field input:focus{border-color:var(--orange-dim);border-left-color:var(--orange);background:#0f1520;box-shadow:0 0 0 1px rgba(240,165,0,0.1),inset 0 0 20px rgba(240,165,0,0.03)}
+
+/* SUBMIT BUTTON */
+.btn-submit{width:100%;padding:14px;background:transparent;border:1px solid var(--orange);color:var(--orange);font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:4px;text-transform:uppercase;cursor:pointer;position:relative;overflow:hidden;margin-top:0.5rem;transition:all 0.25s}
+.btn-submit::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(240,165,0,0.15),transparent);transition:left 0.4s}
+.btn-submit:hover{background:rgba(240,165,0,0.1);box-shadow:0 0 20px rgba(240,165,0,0.2)}
+.btn-submit:hover::before{left:100%}
+.btn-submit:active{transform:scale(0.99)}
+
+/* MESSAGE */
+.auth-msg{padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:1px;margin-bottom:1rem;border-left:3px solid;display:none}
+.auth-msg.error{background:rgba(232,55,42,0.1);border-color:var(--red);color:#ff6b5e}
+.auth-msg.success{background:rgba(76,175,80,0.1);border-color:var(--success);color:#81c784}
+
+/* LOADING SCREEN */
+.loading-screen{display:none;position:fixed;inset:0;z-index:100;background:var(--bg-deep);flex-direction:column;align-items:center;justify-content:center;gap:20px}
+.loading-screen.show{display:flex}
+.loading-bar-wrap{width:300px;height:4px;background:var(--border);overflow:hidden}
+.loading-bar{height:100%;background:linear-gradient(90deg,var(--orange),#ffd166);width:0%;box-shadow:0 0 10px var(--orange)}
+.loading-label{font-family:'Rajdhani',sans-serif;font-size:28px;font-weight:700;letter-spacing:4px;color:var(--text-primary)}
+.loading-text{font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:3px;color:var(--orange)}
+
+/* PROFILE PAGE */
+.profile-page{display:none;position:fixed;inset:0;z-index:50;background:var(--bg-deep);overflow-y:auto}
+.profile-page.show{display:block}
+.profile-wrap{min-height:100vh;padding:2.5rem;max-width:760px;margin:0 auto}
+.profile-header-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border);position:relative}
+.profile-header-bar::after{content:'';position:absolute;bottom:-1px;left:0;width:80px;height:1px;background:var(--orange);box-shadow:0 0 10px var(--orange)}
+.profile-player{display:flex;align-items:center;gap:14px}
+.player-avatar{width:52px;height:52px;background:linear-gradient(135deg,var(--bg-card),#1a2535);border:1px solid var(--orange-dim);display:flex;align-items:center;justify-content:center}
+.avatar-text{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--orange);letter-spacing:1px}
+.player-name{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+.player-tag{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-muted);letter-spacing:2px}
+.btn-logout{padding:8px 20px;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.2s}
+.btn-logout:hover{border-color:var(--red);color:#ff6b5e}
+.profile-card{background:var(--bg-card);border:1px solid var(--border);padding:1.8rem 2rem;margin-bottom:1.5rem;position:relative}
+.profile-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(to bottom,var(--orange),transparent)}
+.section-head{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--orange);margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
+.section-head::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.p-field{margin-bottom:0.8rem}
+.p-field label{display:block;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px}
+.p-field input,.p-field select,.p-field textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);padding:10px 13px;font-family:'Barlow Condensed',sans-serif;font-size:14px;color:var(--text-primary);outline:none;transition:border-color 0.2s}
+.p-field input:focus,.p-field select:focus,.p-field textarea:focus{border-color:var(--orange-dim)}
+.p-field select{cursor:pointer}
+.p-field textarea{min-height:80px;resize:vertical}
+.p-field select option{background:var(--bg-deep)}
+.btn-row-profile{display:flex;justify-content:flex-end;gap:12px;margin-top:0.5rem}
+.btn-discard{padding:10px 22px;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:'Rajdhani',sans-serif;font-size:14px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.2s}
+.btn-discard:hover{border-color:var(--text-dim);color:var(--text-primary)}
+.btn-save{padding:10px 28px;background:transparent;border:1px solid var(--orange);color:var(--orange);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.2s}
+.btn-save:hover{background:rgba(240,165,0,0.1);box-shadow:0 0 15px rgba(240,165,0,0.2)}
+
+/* DB STATUS BAR */
+.db-status-bar{background:rgba(240,165,0,0.05);border:1px solid rgba(240,165,0,0.15);padding:10px 16px;margin-bottom:1.5rem;display:flex;align-items:center;gap:10px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px}
+.db-dot{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);animation:blink 2s infinite}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(30px);background:var(--bg-card);border:1px solid var(--orange-dim);border-left:3px solid var(--orange);padding:12px 24px;font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:1px;color:var(--orange);opacity:0;pointer-events:none;transition:all 0.3s;z-index:200}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+body{cursor:crosshair}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-scene">
+  <div class="bg-grid"></div>
+  <div class="bg-vignette"></div>
+  <div class="bg-accent a1"></div>
+  <div class="bg-accent a2"></div>
+  <div class="scanlines"></div>
+</div>
+
+<!-- Loading Screen -->
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-label" id="loading-label">CONNECTING TO SERVER</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-text" id="loading-text">AUTHENTICATING PLAYER...</div>
+</div>
+
+<!-- ============================== PROFILE PAGE ============================== -->
+<div class="profile-page" id="profile-page">
+  <div class="profile-wrap">
+
+    <div class="profile-header-bar">
+      <div class="profile-player">
+        <div class="player-avatar">
+          <span class="avatar-text" id="avatar-initials">CS</span>
+        </div>
+        <div>
+          <div class="player-name" id="profile-username">PLAYER</div>
+          <div class="player-tag">// AUTHENTICATED AGENT — SESSION ACTIVE</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">[ DISCONNECT ]</button>
+    </div>
+
+    <!-- DB Status -->
+    <div class="db-status-bar">
+      <div class="db-dot"></div>
+      SQLite Database — cs_players.db — Profile data loaded from server
+    </div>
+
+    <div class="profile-card">
+      <div class="section-head">AGENT PROFILE</div>
+      <div class="grid-2">
+        <div class="p-field">
+          <label>Rank</label>
+          <select id="p-rank">
+            <option value="Unranked">Unranked</option>
+            <option value="Silver I">Silver I</option>
+            <option value="Silver II">Silver II</option>
+            <option value="Silver III">Silver III</option>
+            <option value="Silver IV">Silver IV</option>
+            <option value="Silver Elite">Silver Elite</option>
+            <option value="Silver Elite Master">Silver Elite Master</option>
+            <option value="Gold Nova I">Gold Nova I</option>
+            <option value="Gold Nova II">Gold Nova II</option>
+            <option value="Gold Nova III">Gold Nova III</option>
+            <option value="Gold Nova Master">Gold Nova Master</option>
+            <option value="Master Guardian I">Master Guardian I</option>
+            <option value="Master Guardian II">Master Guardian II</option>
+            <option value="Master Guardian Elite">Master Guardian Elite</option>
+            <option value="Distinguished Master Guardian">Distinguished Master Guardian</option>
+            <option value="Legendary Eagle">Legendary Eagle</option>
+            <option value="Legendary Eagle Master">Legendary Eagle Master</option>
+            <option value="Supreme Master First Class">Supreme Master First Class</option>
+            <option value="The Global Elite">The Global Elite</option>
+          </select>
+        </div>
+        <div class="p-field">
+          <label>Country / Region</label>
+          <input type="text" id="p-country" placeholder="e.g. Pakistan"/>
+        </div>
+      </div>
+      <div class="p-field">
+        <label>Bio / Callsign</label>
+        <textarea id="p-bio" placeholder="Tell the server who you are..."></textarea>
+      </div>
+      <div class="btn-row-profile">
+        <button class="btn-discard" onclick="discardProfile()">DISCARD</button>
+        <button class="btn-save" onclick="saveProfile()">SAVE TO DATABASE</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================== AUTH PAGE ============================== -->
+<div class="wrapper" id="main-auth">
+
+  <!-- LEFT -->
+  <div class="panel-left">
+    <div class="cs-logo">
+      <div class="cs-logo-icon">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M32 4L8 14V34C8 48 20 58 32 62C44 58 56 48 56 34V14L32 4Z" stroke="#f0a500" stroke-width="2" fill="rgba(240,165,0,0.06)"/>
+          <path d="M32 10L14 18V34C14 45 22 53 32 57C42 53 50 45 50 34V18L32 10Z" fill="rgba(240,165,0,0.08)" stroke="#f0a500" stroke-width="1" stroke-opacity="0.4"/>
+          <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" font-family="Rajdhani,sans-serif" font-weight="700" font-size="18" fill="#f0a500" letter-spacing="1">CS</text>
+        </svg>
+      </div>
+      <div class="cs-title">COUNTER<br>STRIKE</div>
+      <div class="cs-subtitle">// SECURE ACCESS PORTAL v2.0</div>
+    </div>
+
+    <div class="server-status">
+      <div class="status-dot"></div>
+      <span>SERVERS ONLINE — SQLite DB ACTIVE</span>
+    </div>
+
+    <div class="panel-art">
+      <svg class="ct-silhouette" viewBox="0 0 200 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="100" cy="45" rx="28" ry="32" fill="white"/>
+        <rect x="60" y="90" width="80" height="130" rx="4" fill="white"/>
+        <rect x="20" y="95" width="35" height="100" rx="4" fill="white"/>
+        <rect x="145" y="95" width="35" height="100" rx="4" fill="white"/>
+        <rect x="65" y="225" width="32" height="110" rx="4" fill="white"/>
+        <rect x="103" y="225" width="32" height="110" rx="4" fill="white"/>
+        <path d="M72 30 Q100 10 128 30 L128 60 Q100 55 72 60 Z" fill="rgba(0,0,0,0.3)"/>
+        <rect x="148" y="120" width="8" height="60" rx="2" fill="white" opacity="0.7"/>
+        <rect x="152" y="100" width="40" height="12" rx="2" fill="white" opacity="0.7"/>
+      </svg>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-num">128</div><div class="stat-label">Tick Rate</div></div>
+      <div class="stat-box"><div class="stat-num">CS2</div><div class="stat-label">Version</div></div>
+      <div class="stat-box"><div class="stat-num">5v5</div><div class="stat-label">Format</div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel-right">
+    <div class="auth-container">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tab-login"    onclick="switchTab('login')">[ LOGIN ]</button>
+        <button class="tab-btn"        id="tab-register" onclick="switchTab('register')">[ REGISTER ]</button>
+      </div>
+      <div class="auth-card">
+        <div class="corner-tl"></div>
+        <div id="auth-msg" class="auth-msg"></div>
+
+        <!-- LOGIN FORM -->
+        <div id="form-login">
+          <div class="form-title">AUTHENTICATE</div>
+          <div class="form-subtitle">// ENTER CREDENTIALS TO PROCEED</div>
+          <div class="field">
+            <label>// EMAIL ADDRESS</label>
+            <input type="email" id="login-email" placeholder="agent@cs2.gg"/>
+          </div>
+          <div class="field">
+            <label>// PASSWORD</label>
+            <input type="password" id="login-pass" placeholder="••••••••••"/>
+          </div>
+          <button class="btn-submit" onclick="handleLogin()">▶ CONNECT TO SERVER</button>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="form-register" style="display:none">
+          <div class="form-title">ENLIST</div>
+          <div class="form-subtitle">// CREATE YOUR AGENT PROFILE</div>
+          <div class="field">
+            <label>// PLAYER TAG / USERNAME</label>
+            <input type="text" id="reg-username" placeholder="xX_Headshot_Xx"/>
+          </div>
+          <div class="field">
+            <label>// EMAIL ADDRESS</label>
+            <input type="email" id="reg-email" placeholder="agent@cs2.gg"/>
+          </div>
+          <div class="field">
+            <label>// SET PASSWORD</label>
+            <input type="password" id="reg-pass" placeholder="Min. 6 characters"/>
+          </div>
+          <div class="field">
+            <label>// CONFIRM PASSWORD</label>
+            <input type="password" id="reg-pass2" placeholder="Confirm password"/>
+          </div>
+          <button class="btn-submit" onclick="handleRegister()">▶ ENLIST NOW</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── TAB SWITCHING ───────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('form-login').style.display     = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('form-register').style.display  = tab === 'register' ? 'block' : 'none';
+  document.getElementById('tab-login').classList.toggle('active',    tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  hideMsg();
+}
+
+// ─── MESSAGE HELPERS ─────────────────────────────────────────
+function showMsg(text, type) {
+  const el = document.getElementById('auth-msg');
+  el.textContent  = text;
+  el.className    = 'auth-msg ' + type;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+function hideMsg() {
+  document.getElementById('auth-msg').style.display = 'none';
+}
+
+// ─── ANIMATED LOADING SCREEN ─────────────────────────────────
+function showLoading(label, subtext, duration, callback) {
+  const ls  = document.getElementById('loading-screen');
+  const bar = document.getElementById('loading-bar');
+  document.getElementById('loading-label').textContent = label;
+  document.getElementById('loading-text').textContent  = subtext;
+  ls.classList.add('show');
+
+  // Animate the bar
+  bar.style.transition = 'none';
+  bar.style.width = '0%';
+  setTimeout(() => {
+    bar.style.transition = `width ${duration / 1000}s ease`;
+    bar.style.width = '100%';
+  }, 30);
+
+  setTimeout(() => {
+    ls.classList.remove('show');
+    if (callback) callback();
+  }, duration);
+}
+
+// ─── LOGIN ───────────────────────────────────────────────────
+async function handleLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value;
+  if (!email || !password) { showMsg('// ERROR: All fields required.', 'error'); return; }
+
+  const fd = new FormData();
+  fd.append('email',    email);
+  fd.append('password', password);
+
+  try {
+    const res  = await fetch('/login', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (res.ok) {
+      // Store player info in localStorage
+      localStorage.setItem('player_id', data.player_id);
+      localStorage.setItem('username',  data.username);
+
+      showLoading('AUTHENTICATING', '// QUERYING DATABASE...', 2000, async () => {
+        await loadAndShowProfile(data.player_id, data.username);
+      });
+    } else {
+      showMsg('// ' + (data.error || 'Authentication failed.'), 'error');
+    }
+  } catch(e) {
+    showMsg('// ERROR: Server unreachable. Is Flask running?', 'error');
+  }
+}
+
+// ─── REGISTER ────────────────────────────────────────────────
+async function handleRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  const confirm  = document.getElementById('reg-pass2').value;
+
+  if (!username || !email || !password || !confirm) { showMsg('// ERROR: All fields required.', 'error'); return; }
+  if (password !== confirm) { showMsg('// ERROR: Passwords do not match.', 'error'); return; }
+  if (password.length < 6)  { showMsg('// ERROR: Password too short (min 6).', 'error'); return; }
+
+  const fd = new FormData();
+  fd.append('username', username);
+  fd.append('email',    email);
+  fd.append('password', password);
+
+  try {
+    const res  = await fetch('/register', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (res.ok) {
+      showMsg('// SUCCESS: Agent enlisted! Proceed to login.', 'success');
+      setTimeout(() => switchTab('login'), 1600);
+    } else {
+      showMsg('// ' + (data.error || 'Registration failed.'), 'error');
+    }
+  } catch(e) {
+    showMsg('// ERROR: Server unreachable. Is Flask running?', 'error');
+  }
+}
+
+// ─── LOAD PROFILE FROM DATABASE & SHOW PROFILE PAGE ──────────
+async function loadAndShowProfile(playerId, username) {
+  try {
+    // Fetch saved profile data from SQLite via Flask API
+    const res  = await fetch(`/profile/${playerId}`);
+    const data = await res.json();
+
+    if (res.ok) {
+      // Populate profile fields with DB data
+      const rankSelect = document.getElementById('p-rank');
+      const opts       = Array.from(rankSelect.options);
+      const match      = opts.find(o => o.value === data.rank);
+      if (match) rankSelect.value = data.rank;
+
+      document.getElementById('p-country').value = data.country || '';
+      document.getElementById('p-bio').value     = data.bio     || '';
+    }
+  } catch(e) {
+    // If no profile yet, fields stay blank — that's fine
+    console.log('No existing profile found, starting fresh.');
+  }
+
+  showProfilePage(username);
+}
+
+// ─── SHOW PROFILE PAGE ───────────────────────────────────────
+function showProfilePage(username) {
+  const name     = (username || 'PLAYER').toUpperCase();
+  const initials = name.substring(0, 2);
+  document.getElementById('profile-username').textContent = name;
+  document.getElementById('avatar-initials').textContent  = initials;
+  document.getElementById('profile-page').classList.add('show');
+  document.getElementById('main-auth').style.display = 'none';
+}
+
+// ─── SAVE PROFILE TO DATABASE ────────────────────────────────
+async function saveProfile() {
+  const fd = new FormData();
+  fd.append('player_id', localStorage.getItem('player_id') || '');
+  fd.append('rank',      document.getElementById('p-rank').value);
+  fd.append('country',   document.getElementById('p-country').value);
+  fd.append('bio',       document.getElementById('p-bio').value);
+
+  try {
+    const res  = await fetch('/profile/save', { method: 'POST', body: fd });
+    const data = await res.json();
+    showToast(res.ok ? '// PROFILE SAVED TO DATABASE ✓' : '// ERROR: ' + data.error);
+  } catch(e) {
+    showToast('// ERROR: Could not reach server.');
+  }
+}
+
+// ─── DISCARD CHANGES ─────────────────────────────────────────
+function discardProfile() {
+  document.getElementById('p-rank').value    = 'Unranked';
+  document.getElementById('p-country').value = '';
+  document.getElementById('p-bio').value     = '';
+  showToast('// CHANGES DISCARDED');
+}
+
+// ─── LOGOUT ──────────────────────────────────────────────────
+function logout() {
+  localStorage.removeItem('player_id');
+  localStorage.removeItem('username');
+  document.getElementById('profile-page').classList.remove('show');
+  document.getElementById('main-auth').style.display = 'grid';
+  // Clear login fields
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value  = '';
+}
+
+// ─── TOAST ───────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── ENTER KEY SUPPORT ───────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const loginVisible = document.getElementById('form-login').style.display !== 'none';
+  if (loginVisible) handleLogin();
+  else handleRegister();
+});
+</script>
+</body>
+</html>
